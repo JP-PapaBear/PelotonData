@@ -1,0 +1,33 @@
+import requests
+import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+# Set up Google Sheets API
+scope = ['https://www.googleapis.com/auth/drive']
+creds = ServiceAccountCredentials.from_json_keyfile_name('<YOUR_CREDENTIALS_FILE>.json', scope)
+client = gspread.authorize(creds)
+sheet = client.open('Justin's Peloton Data').sheet1
+
+# Set up Peloton API
+peloton_email = '<YOUR_PELOTON_EMAIL>'
+peloton_password = '<YOUR_PELOTON_PASSWORD>'
+peloton_user_id = '<YOUR_PELOTON_USER_ID>'
+
+# Log in to Peloton API
+peloton_session = requests.Session()
+peloton_session.post('https://api.onepeloton.com/auth/login', json={'username_or_email': peloton_email, 'password': peloton_password})
+
+# Get Peloton workout summary
+today = datetime.date.today()
+yesterday = today - datetime.timedelta(days=1)
+url = f'https://api.onepeloton.com/api/v2/user/{peloton_user_id}/workout_history_csv?joins=ride&limit=500&content_format=csv&before={today}&after={yesterday}'
+response = peloton_session.get(url)
+
+# Write Peloton workout summary to Google Sheet
+if response.status_code == 200:
+    data = response.content.decode().split('\n')
+    for row in data:
+        if row != '':
+            values = row.split(',')
+            sheet.append_row(values)
